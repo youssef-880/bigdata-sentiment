@@ -2,12 +2,6 @@
 
 Sentiment analysis project tracking public perception of [Brand Name] across social media, using Hadoop, PostgreSQL, and Python for the Big Data & Analytics course.
 
-## Team Members
-- Name 1
-- Name 2
-- Name 3
-- Name 4
-
 ## Project Pipeline
 1. **Data Collection** – YouTube Data API v3 (comments on brand-related videos)
 2. **Storage** – Hadoop / HDFS
