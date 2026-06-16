@@ -25,8 +25,8 @@ Sentiment analysis project tracking public perception of [Brand Name] across soc
 
 Clone the repo:
 ```bash
-git clone https://github.com/your-username/bigdata-sentiment-brandxyz.git
-cd bigdata-sentiment-brandxyz
+git clone https://github.com/youssef-880/bigdata-sentiment.git
+cd bigdata-sentiment
 ```
 
 Install Python dependencies:
