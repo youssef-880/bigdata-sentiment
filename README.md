@@ -1,6 +1,6 @@
 # Big Data & Analytics 
 
-Sentiment analysis project tracking public perception of [Brand Name] across social media, using Hadoop, PostgreSQL, and Python for the Big Data & Analytics course.
+Sentiment analysis project tracking public perception of Youtube across social media, using Hadoop, PostgreSQL, and Python for the Big Data & Analytics course.
 
 ## Project Pipeline
 1. **Data Collection** – YouTube Data API v3 (comments on brand-related videos)
