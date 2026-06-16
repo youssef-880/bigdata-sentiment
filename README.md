@@ -87,7 +87,3 @@ git pull origin main
 - Never commit API keys, `.env` files, or large raw data dumps — add them to `.gitignore`.
 - If you hit a merge conflict, don't panic: pull `main` into your branch, resolve the conflicting lines manually in the file, then commit and push again.
 
-## Key Deadlines
-| Task | Deadline |
-|---|---|
-| Final Report Submission | 03.07.2026, 23:59:59 |
