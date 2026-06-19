@@ -1,0 +1,10 @@
+google-api-python-client
+python-dotenv
+vaderSentiment
+psycopg2-binary
+pandas
+matplotlib
+seaborn
+wordcloud
+langdetect
+nltk
