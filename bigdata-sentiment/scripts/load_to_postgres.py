@@ -1,40 +1,80 @@
 #!/usr/bin/env python3
 """
-Loads cleaned YouTube comments from the HDFS-output JSONL file into PostgreSQL.
+Loads cleaned YouTube comments from data/cleaned_comments.csv into PostgreSQL.
+Creates the database and table if they don't already exist.
 
-Connection: Unix socket peer auth (runs as hex OS user → hex DB role).
-Run from your terminal:
-    python3 scripts/load_to_postgres.py
+Run from the project root:
+    python scripts/load_to_postgres.py
 """
 
-import json
+import csv
+import os
 import sys
 from pathlib import Path
+
 import psycopg2
-from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-DATA_FILE = Path(__file__).parent.parent / "data" / "cleaned_comments.jsonl"
+load_dotenv()
 
+DATA_FILE = Path(__file__).parent.parent / "data" / "cleaned_comments.csv"
+
+DB_NAME = os.getenv("DB_NAME", "sentiment_db")
 DB_PARAMS = dict(
-    host="127.0.0.1",
-    port=5432,
-    dbname="sentiment_project",
-    user="hex",
-    password="hexpass",
+    host=os.getenv("DB_HOST", "localhost"),
+    port=int(os.getenv("DB_PORT", 5432)),
+    dbname=DB_NAME,
+    user=os.getenv("DB_USER", "postgres"),
+    password=os.getenv("DB_PASSWORD", ""),
 )
 
 INSERT_SQL = """
     INSERT INTO youtube_comments
         (video_id, video_title, comment_text, author, like_count, published_at)
     VALUES (%s, %s, %s, %s, %s, %s)
-    ON CONFLICT DO NOTHING
 """
+
+CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS youtube_comments (
+    id              SERIAL PRIMARY KEY,
+    video_id        VARCHAR(20)  NOT NULL,
+    video_title     TEXT,
+    comment_text    TEXT         NOT NULL,
+    author          VARCHAR(255),
+    like_count      INTEGER      DEFAULT 0,
+    published_at    TIMESTAMPTZ,
+    sentiment_score FLOAT,
+    sentiment_label VARCHAR(10),
+    created_at      TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sentiment_label ON youtube_comments(sentiment_label);
+CREATE INDEX IF NOT EXISTS idx_video_id        ON youtube_comments(video_id);
+"""
+
+
+def ensure_database():
+    admin_params = {**DB_PARAMS, "dbname": "postgres"}
+    try:
+        conn = psycopg2.connect(**admin_params)
+    except psycopg2.OperationalError as e:
+        sys.exit(f"Cannot connect to PostgreSQL: {e}\nCheck your .env credentials.")
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
+    if not cur.fetchone():
+        cur.execute(f'CREATE DATABASE "{DB_NAME}"')
+        print(f"Created database: {DB_NAME}")
+    else:
+        print(f"Database '{DB_NAME}' already exists")
+    cur.close()
+    conn.close()
 
 
 def parse_ts(ts_str: str):
     if not ts_str:
         return None
     try:
+        from datetime import datetime
         return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
     except ValueError:
         return None
@@ -42,32 +82,22 @@ def parse_ts(ts_str: str):
 
 def main():
     if not DATA_FILE.exists():
-        sys.exit(f"Data file not found: {DATA_FILE}")
+        sys.exit(f"Data file not found: {DATA_FILE}\nRun: python scripts/clean_comments.py first")
 
     records = []
     with open(DATA_FILE, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                r = json.loads(line)
-                records.append(r)
-            except json.JSONDecodeError:
-                continue
+        reader = csv.DictReader(f)
+        for row in reader:
+            records.append(row)
 
     print(f"Loaded {len(records)} records from {DATA_FILE.name}")
 
-    try:
-        conn = psycopg2.connect(**DB_PARAMS)
-    except psycopg2.OperationalError as e:
-        print(f"Connection failed: {e}")
-        print("Make sure you've run: sudo -u postgres psql -f sql/schema.sql")
-        sys.exit(1)
+    ensure_database()
 
+    conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
-    # Clear existing data so re-runs are idempotent
+    cur.execute(CREATE_TABLE_SQL)
     cur.execute("TRUNCATE youtube_comments RESTART IDENTITY;")
 
     rows = [
@@ -76,7 +106,7 @@ def main():
             r.get("videoTitle", ""),
             r.get("comment", ""),
             r.get("author", ""),
-            r.get("likeCount", 0),
+            int(r.get("likeCount", 0) or 0),
             parse_ts(r.get("publishedAt", "")),
         )
         for r in records
@@ -84,11 +114,10 @@ def main():
 
     cur.executemany(INSERT_SQL, rows)
     conn.commit()
-    print(f"Inserted {cur.rowcount if cur.rowcount >= 0 else len(rows)} rows into youtube_comments")
+    print(f"Inserted {len(rows)} rows into youtube_comments")
 
     cur.execute("SELECT COUNT(*) FROM youtube_comments;")
-    count = cur.fetchone()[0]
-    print(f"Table now has {count} rows")
+    print(f"Table row count: {cur.fetchone()[0]}")
 
     cur.close()
     conn.close()

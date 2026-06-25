@@ -11,6 +11,7 @@ Run from your terminal:
     python3 scripts/visualize.py
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -19,12 +20,15 @@ from collections import Counter
 import psycopg2
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")           # non-interactive backend — safe for VM
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
 from wordcloud import WordCloud
+from dotenv import load_dotenv
 import nltk
+
+load_dotenv()
 
 # Download stopwords if needed
 try:
@@ -42,11 +46,11 @@ EXTRA_STOP = {"like", "im", "get", "one", "its", "got", "ur", "u", "it", "thats"
 STOP_WORDS |= EXTRA_STOP
 
 DB_PARAMS = dict(
-    host="127.0.0.1",
-    port=5432,
-    dbname="sentiment_project",
-    user="hex",
-    password="hexpass",
+    host=os.getenv("DB_HOST", "localhost"),
+    port=int(os.getenv("DB_PORT", 5432)),
+    dbname=os.getenv("DB_NAME", "sentiment_db"),
+    user=os.getenv("DB_USER", "postgres"),
+    password=os.getenv("DB_PASSWORD", ""),
 )
 
 OUTPUT_DIR = Path(__file__).parent.parent / "visualizations"
@@ -84,7 +88,28 @@ def clean_tokens(text: str) -> list[str]:
     return [t for t in tokens if t not in STOP_WORDS]
 
 
-# ── Chart 1: Sentiment distribution ──────────────────────────────────────────
+# ── Chart 1: Sentiment pie chart ─────────────────────────────────────────────
+def plot_pie(df: pd.DataFrame):
+    counts = df["sentiment_label"].value_counts().reindex(
+        ["positive", "neutral", "negative"], fill_value=0
+    )
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.pie(
+        counts.values,
+        labels=[l.capitalize() for l in counts.index],
+        colors=[COLORS[l] for l in counts.index],
+        autopct="%1.1f%%",
+        startangle=140,
+        wedgeprops={"edgecolor": "white", "linewidth": 1.5},
+    )
+    ax.set_title("Apple YouTube Comments — Sentiment Distribution", fontsize=14, pad=15)
+    path = OUTPUT_DIR / "sentiment_pie.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {path}")
+
+
+# ── Chart 2: Sentiment bar chart ──────────────────────────────────────────────
 def plot_distribution(df: pd.DataFrame):
     counts = df["sentiment_label"].value_counts().reindex(
         ["positive", "neutral", "negative"], fill_value=0
@@ -246,6 +271,7 @@ def main():
     print(df["sentiment_label"].value_counts().to_string())
     print()
 
+    plot_pie(df)
     plot_distribution(df)
     plot_wordcloud(df, "positive")
     plot_wordcloud(df, "negative")

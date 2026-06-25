@@ -15,15 +15,19 @@ Run from your terminal:
     python3 scripts/sentiment_analysis.py
 """
 
+import os
 import psycopg2
+from dotenv import load_dotenv
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
+load_dotenv()
+
 DB_PARAMS = dict(
-    host="127.0.0.1",
-    port=5432,
-    dbname="sentiment_project",
-    user="hex",
-    password="hexpass",
+    host=os.getenv("DB_HOST", "localhost"),
+    port=int(os.getenv("DB_PORT", 5432)),
+    dbname=os.getenv("DB_NAME", "sentiment_db"),
+    user=os.getenv("DB_USER", "postgres"),
+    password=os.getenv("DB_PASSWORD", ""),
 )
 
 

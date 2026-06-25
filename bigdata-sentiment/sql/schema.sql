@@ -1,29 +1,9 @@
--- Schema for the Apple YouTube sentiment project
--- Run as: sudo -u postgres psql -f sql/schema.sql
+-- Apple YouTube Sentiment — Table Schema
+-- Assumes you are already connected to sentiment_db.
+-- load_to_postgres.py creates the database and runs this automatically.
+-- Manual run: psql -U postgres -d sentiment_db -f sql/schema.sql
 
--- 1. Ensure the hex role exists with the password Python scripts use
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'hex') THEN
-        CREATE USER hex WITH SUPERUSER PASSWORD 'hexpass';
-    ELSE
-        ALTER USER hex WITH PASSWORD 'hexpass';
-    END IF;
-END
-$$;
-
--- 2. Create database (must be outside a transaction block — run manually if needed)
---    Uncomment and run if sentiment_project doesn't exist yet:
--- CREATE DATABASE sentiment_project OWNER hex;
-
-\c sentiment_project
-
-GRANT ALL PRIVILEGES ON DATABASE sentiment_project TO hex;
-
--- 3. Create the comments table
-DROP TABLE IF EXISTS youtube_comments;
-
-CREATE TABLE youtube_comments (
+CREATE TABLE IF NOT EXISTS youtube_comments (
     id              SERIAL PRIMARY KEY,
     video_id        VARCHAR(20)  NOT NULL,
     video_title     TEXT,
@@ -32,15 +12,12 @@ CREATE TABLE youtube_comments (
     like_count      INTEGER      DEFAULT 0,
     published_at    TIMESTAMPTZ,
     sentiment_score FLOAT,
-    sentiment_label VARCHAR(10),  -- 'positive', 'negative', 'neutral'
+    sentiment_label VARCHAR(10),
     created_at      TIMESTAMPTZ  DEFAULT NOW()
 );
 
-CREATE INDEX idx_sentiment_label ON youtube_comments(sentiment_label);
-CREATE INDEX idx_video_id        ON youtube_comments(video_id);
-CREATE INDEX idx_published_at    ON youtube_comments(published_at);
-
-\dt
-\d youtube_comments
+CREATE INDEX IF NOT EXISTS idx_sentiment_label ON youtube_comments(sentiment_label);
+CREATE INDEX IF NOT EXISTS idx_video_id        ON youtube_comments(video_id);
+CREATE INDEX IF NOT EXISTS idx_published_at    ON youtube_comments(published_at);
 
 SELECT 'Schema setup complete.' AS status;
